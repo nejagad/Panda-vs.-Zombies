@@ -33,11 +33,11 @@ class ZombieInvasion:
 
         self._create_fleet()
         self.play_button = Button(self, "PLAY GAME")
-        self.question_button = Directions(self, "HELP")
+        self.question_button = Directions(self, "Press X to exit")
         str1 = "Your mission is to save the world by guiding the panda to poop on all the zombies and kill them. Your panda has 3 lives."
         self.help_button = Help(self, str1)
         self.over_button = Button(self, "GAME OVER")
-        
+        self.win_button = Button(self, "YOU WON!")
         
 
     def run_game(self):
@@ -105,7 +105,6 @@ class ZombieInvasion:
 
     def _check_play_button(self, mouse_pos):
           if self.play_button.rect.collidepoint(mouse_pos) and not self.stats.game_active :
-           # pygame.mouse.set_visible(False)
             self.stats.reset_stats()
             self.stats.game_active = True
             self.sb.prep_score()
@@ -116,7 +115,6 @@ class ZombieInvasion:
                     
     def _check_question_button(self, mouse_pos):
           if self.question_button.rect.collidepoint(mouse_pos) :
-           # pygame.mouse.set_visible(False)
             self.stats.game_active = False
             self.stats.help_needed = True
      
@@ -125,7 +123,7 @@ class ZombieInvasion:
                 new_poop = Poop(self)
                 self.poops.add(new_poop)
     
-    def _create_fleet(self):
+    def _create_fleet(self):        # creates a fleet of zombies
           zombie = Zombie(self)
           zombie_width, zombie_height = zombie.rect.size
           available_space_x = self.settings.screen_width - (2 * zombie_width)
@@ -138,6 +136,8 @@ class ZombieInvasion:
           for row_number in range(number_rows):
             for zombie_number in range(number_zombies_x):
                 self._create_zombie(zombie_number, row_number)
+            
+          self.zombies_left = number_rows*number_zombies_x
                 
     def _create_zombie(self, zombie_number, row_number):
                     zombie = Zombie(self)
@@ -157,7 +157,7 @@ class ZombieInvasion:
     def _update_poops(self):
         self.poops.update() # update poop positions
 
-        for poop in self.poops.copy():
+        for poop in self.poops.copy():    
               if poop.rect.bottom <= 0:
                     self.poops.remove(poop)
 
@@ -168,22 +168,31 @@ class ZombieInvasion:
                         self.stats.score += self.settings.zombie_points * len(zombies)
               pygame.mixer.music.load('images/dead.wav')
               pygame.mixer.music.play(0)
+              self.zombies_left -= len(zombies)
+              if self.zombies_left == 0:
+                    self.stats.game_over = True
+                    self.stats.win = True
+                    self._update_screen()
+                    sleep(5.0)
+                    self.stats.game_active = False
+                    self.stats.game_over = False
+                    self._update_screen()
               self.sb.prep_score()
               self.sb.check_high_score()
 
-    def _check_fleet_edges(self):
+    def _check_fleet_edges(self):   
           for zombie in self.zombies.sprites():
             if zombie.check_edges():
                 self._change_fleet_direction()
                 break
  
-    def _change_fleet_direction(self):
+    def _change_fleet_direction(self):    # makes the fleet move in the other direction when it hits a side
           for zombie in self.zombies.sprites():
                 zombie.rect.y -= self.settings.fleet_drop_speed
           self.settings.fleet_direction *= -1
 
 
-    def _check_zombies_bottom(self):
+    def _check_zombies_bottom(self):      # checks to see if the zombies have made it to the top of the screen
           screen_rect = self.screen.get_rect()
           for zombie in self.zombies.sprites():
                 if zombie.rect.bottom <= screen_rect.top:
@@ -193,6 +202,8 @@ class ZombieInvasion:
     def _panda_hit(self):
       if self.stats.pandas_left > 2:
           self.stats.pandas_left -= 1
+          self.sb.prep_lives()
+          self.sb.show_score()
           pygame.mixer.music.load('images/hit.wav')
           pygame.mixer.music.play(0)
 
@@ -202,11 +213,11 @@ class ZombieInvasion:
           self._create_fleet()
           self.panda.center_panda()
 
-          sleep(0.5)
+          sleep(0.5)    # pauses game for half a second once hit occurs before resetting
       else:
-             self.over_button.draw_button()
-             self.stats.game_over = True
+             self.stats.game_over = False
              self.stats.game_active = False
+             self._update_screen()
             
 
     def _update_screen(self):
@@ -216,14 +227,20 @@ class ZombieInvasion:
                poop.draw_poop()
          self.zombies.draw(self.screen)
          self.sb.show_score()
+         
 
          self.question_button.draw_button()
-         if not self.stats.game_active:
+         if not self.stats.game_active and not self.stats.game_over:
               self.play_button.draw_button()
-         if self.stats.help_needed and not self.stats.game_over:
+         elif self.stats.game_over and not self.stats.win:
+               self.over_button.draw_button()
+         elif self.stats.game_over and self.stats.win:
+               self.win_button.draw_button()
+         elif self.stats.help_needed:
                self.help_button.draw_button()
          pygame.display.flip() # draws empty screen after each iteration of while loop
 
+    
 if __name__ == '__main__':
     ai = ZombieInvasion()
     ai.run_game()
